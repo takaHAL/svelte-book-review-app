@@ -2,14 +2,13 @@
   import SearchBar from '../components/SearchBar.svelte'
   import Spinner from '../components/Spinner.svelte'
   import BookCard from '../components/BookCard.svelte'
-  import type { BookItem, Result } from '../repositories/book'
+  import { books } from '../store/book'
   import RepositoryFactory, { BOOK } from '../repositories/RepositoryFactory'
   import InfiniteScroll from "svelte-infinite-scroll"
   const BookRepository = RepositoryFactory[BOOK]
 
   let q = 'JavaScript'
   let empty = false
-  let books: BookItem[] = []
   let promise: Promise<void>
   let startIndex = 0
 
@@ -19,16 +18,16 @@
   }
 
   let totalItems = 0
-  $: hasMore = totalItems > books.length
+  $: hasMore = totalItems > $books.length
 
   const getBooks = async () => {
-    books = []
+    books.reset()
     empty = false
     startIndex = 0
     const result = await BookRepository.get({ q })
     empty = result.totalItems === 0
     totalItems = result.totalItems
-    books = result.items
+    books.add(result.items)
   }
 
   const handleLoadMore = () => {
@@ -40,11 +39,11 @@
     const result = await BookRepository.get({ q, startIndex })
 
     // 取得データが既に存在するものを含む可能性があるので、idでフィルタリングしてます。
-    const bookIds = books.map(book => book.id)
+    const bookIds = $books.map(book => book.id)
     const filteredItems = result.items.filter(item => {
       return !bookIds.includes(item.id)
     })
-    books = [...books, ...filteredItems]
+    books.add(filteredItems)
   }
 </script>
 
@@ -58,7 +57,7 @@
     <div>検索結果が見つかりませんでした。</div>
   {:else}
     <div class="grid grid-cols-1 gap-2 lg:grid-cols-2">
-      {#each books as book (book.id)}
+      {#each $books as book (book.id)}
         <BookCard {book} />
       {/each}
     </div>
